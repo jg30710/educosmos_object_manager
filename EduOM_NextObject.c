@@ -89,6 +89,11 @@ Four EduOM_NextObject(
     if (catObjForFile == NULL) ERR(eBADCATALOGOBJECT_OM);
     
     if (nextOID == NULL) ERR(eBADOBJECTID_OM);
+	
+	e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+	if(e < 0)
+		ERR(e);
+
 
 
 
