@@ -91,11 +91,76 @@ Four EduOM_NextObject(
     if (nextOID == NULL) ERR(eBADOBJECTID_OM);
 	
 	e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+
 	if(e < 0)
 		ERR(e);
 
+	GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
 
+	pid.volNo = catEntry->fid.volNo;
+	pid.pageNo = catEntry->firstPage;
 
+	if(curOID == NULL)
+	{
+		while(TRUE)
+		{
+			e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
+			if(e < 0) ERR(e);
+			if(apage->header.nSlots == 0)
+			{
+				if(pid.pageNo == catEntry->lastPage)
+				{
+					e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+					if(e < 0) ERR(e);
+					break;
+				}
+				else
+				{
+					pid.pageNo = apage->header.nextPage;
+					e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+					if(e < 0) ERR(e);
+					continue;
+				}
+			}
+			else
+			{
+				MAKE_OBJECTID(*nextOID, pid.volNo, pid.pageNo, 0, apage->slot[0].unique);
+				objHdr = (ObjectHdr*)&apage->data[apage->slot[0].offset];
+				BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+			}
+		}
+	}
+	else
+	{
+		e = BfM_GetTrain((TrainID*)curOID, (char**)&apage, PAGE_BUF);
+		if(e < 0) ERR(e);
+		if(curOID->slotNo == (apage->header.nSlots - 1))
+		{
+			if(curOID->pageNo == catEntry->lastPage)
+			{
+				BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+				return(EOS);
+			}
+			pid.pageNo = apage->header.nextPage;
+			e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
+			if(e < 0) ERR(e);
+			MAKE_OBJECTID(*nextOID, pid.volNo, pid.pageNo, 0, apage->slot[0].unique);
+			objHdr = (ObjectHdr*)&apage->data[apage->slot[0].offset];
+			e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+			if(e < 0) ERR(e);
+		}
+		else
+		{
+			MAKE_OBJECTID(*nextOID, curOID->volNo, curOID->pageNo, curOID->slotNo + 1, apage->slot[-(curOID->slotNo + 1)].unique);
+			objHdr = (ObjectHdr*)&apage->data[apage->slot[-(curOID->slotNo + 1)].offset];
+		}
+
+		e = BfM_FreeTrain((TrainID*)curOID, PAGE_BUF);
+		if(e < 0) ERR(e);
+		
+	}
+	e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+	if(e < 0) ERR(e);
 
     return(EOS);		/* end of scan */
     

@@ -107,6 +107,7 @@ Four EduOM_CompactPage(
 			{
 				apage->data[apageDataOffset + j] = tpage.data[tpage.slot[-i].offset + j];
 			}
+			apage->slot[-i].offset = apageDataOffset;
 			apageDataOffset += len;
 		}
 	}
