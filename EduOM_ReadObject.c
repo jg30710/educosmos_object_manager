@@ -108,7 +108,25 @@ Four EduOM_ReadObject(
     
     if (buf == NULL) ERR(eBADUSERBUF_OM);
 
-    
+	e = BfM_GetTrain((TrainID*)oid, (char**)&apage, PAGE_BUF);
+	if(e < 0) ERR(e);
+	
+	if(!IS_VALID_OBJECTID(oid, apage)) return(eBADOBJECTID_OM);
+
+	offset = apage->slot[-(oid->slotNo)].offset;
+	obj = (Object*)&apage->data[offset];
+
+	if((length == REMAINDER) || (length + start > obj->header.length))
+	{
+		memcpy(buf, &obj->data[start], obj->header.length - start);
+		e = BfM_FreeTrain((TrainID*)oid, PAGE_BUF);
+		if(e < 0) ERR(e);
+		return obj->header.length - start;
+	}	
+
+	memcpy(buf, &obj->data[start], length); 
+	e = BfM_FreeTrain((TrainID*)oid, PAGE_BUF);
+	if(e < 0) ERR(e);
 
     return(length);
     

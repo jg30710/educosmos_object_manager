@@ -92,43 +92,38 @@ Four EduOM_NextObject(
 	
 	e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
 
-	if(e < 0)
-		ERR(e);
+	if(e < 0) ERR(e);
 
 	GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
 
-	pid.volNo = catEntry->fid.volNo;
-	pid.pageNo = catEntry->firstPage;
+	MAKE_PAGEID(pid, catEntry->fid.volNo, catEntry->firstPage);
 
 	if(curOID == NULL)
 	{
-		while(TRUE)
+		e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
+		if(e < 0) ERR(e);
+		if(apage->header.nSlots == 0)
 		{
-			e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
-			if(e < 0) ERR(e);
-			if(apage->header.nSlots == 0)
+			if(pid.pageNo == catEntry->lastPage)
 			{
-				if(pid.pageNo == catEntry->lastPage)
-				{
-					e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
-					if(e < 0) ERR(e);
-					break;
-				}
-				else
-				{
-					pid.pageNo = apage->header.nextPage;
-					e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
-					if(e < 0) ERR(e);
-					continue;
-				}
+				e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+				if(e < 0) ERR(e);
+				e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+				if(e < 0) ERR(e);
+				return(EOS);
 			}
 			else
 			{
-				MAKE_OBJECTID(*nextOID, pid.volNo, pid.pageNo, 0, apage->slot[0].unique);
-				objHdr = (ObjectHdr*)&apage->data[apage->slot[0].offset];
-				BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+				pageNo = apage->header.nextPage;
+				e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+				if(e < 0) ERR(e);
+				pid.pageNo = pageNo;
 			}
 		}
+		MAKE_OBJECTID(*nextOID, pid.volNo, pid.pageNo, 0, apage->slot[0].unique);
+		objHdr = (ObjectHdr*)&apage->data[apage->slot[0].offset];
+		e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+		if(e < 0) ERR(e);
 	}
 	else
 	{
@@ -138,7 +133,10 @@ Four EduOM_NextObject(
 		{
 			if(curOID->pageNo == catEntry->lastPage)
 			{
-				BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+				e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+				if(e < 0) ERR(e);
+				e = BfM_FreeTrain((TrainID*)curOID, PAGE_BUF);
+				if(e < 0) ERR(e);
 				return(EOS);
 			}
 			pid.pageNo = apage->header.nextPage;
