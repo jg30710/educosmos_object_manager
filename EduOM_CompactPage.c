@@ -101,24 +101,21 @@ Four EduOM_CompactPage(
 	{
 		if(i != slotNo)
 		{
-			obj = &tpage.data[tpage.slot[-i].offset];
-			len = sizeof(obj->header) + obj->header.length;
-			for(j = 0; j < len; j++)
+			if(tpage.slot[-i].offset != EMPTYSLOT)
 			{
-				apage->data[apageDataOffset + j] = tpage.data[tpage.slot[-i].offset + j];
+				obj = &tpage.data[tpage.slot[-i].offset];
+				len = sizeof(obj->header) + obj->header.length;
+				memcpy(&apage->data[apageDataOffset], &tpage.data[tpage.slot[-i].offset], len);
+				apage->slot[-i].offset = apageDataOffset;
+				apageDataOffset += len;
 			}
-			apage->slot[-i].offset = apageDataOffset;
-			apageDataOffset += len;
 		}
 	}
 	if(slotNo != NIL)
 	{
 		obj = &tpage.data[tpage.slot[-slotNo].offset];
 		len = sizeof(obj->header) + obj->header.length;
-		for(j = 0; j < len; j++)
-		{
-			apage->data[apageDataOffset + j] = tpage.data[tpage.slot[-slotNo].offset + j];
-		}	
+		memcpy(&apage->data[apageDataOffset], &tpage.data[tpage.slot[-slotNo].offset], len);
 		apageDataOffset += len;
 	}
 

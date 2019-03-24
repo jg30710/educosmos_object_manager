@@ -171,7 +171,128 @@ Four eduom_CreateObject(
     
     /* Error check whether using not supported functionality by EduOM */
     if(ALIGNED_LENGTH(length) > LRGOBJ_THRESHOLD) ERR(eNOTSUPPORTED_EDUOM);
-    
+
+	e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+	GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
+   	if(e < 0) ERR(e); 
+
+	MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
+
+	fid = catEntry->fid;
+
+	alignedLen = ALIGNED_LENGTH(length);
+	neededSpace = sizeof(ObjectHdr) + alignedLen + sizeof(SlottedPageSlot);
+
+	if(nearObj != NULL)
+	{
+		e = BfM_GetTrain((TrainID*)nearObj, (char**)&apage, PAGE_BUF);
+		if(e < 0) ERR(e);
+		if(SP_FREE(apage) >= neededSpace)
+		{
+			pid = apage->header.pid;
+			if(SP_CFREE(apage) < neededSpace)
+			{
+				e = EduOM_CompactPage(apage, NIL);
+				if(e < 0) ERR(e);
+				//e = BfM_SetDirty(&pid, PAGE_BUF);
+			}
+			e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
+			if(e < 0) ERR(e);
+			/*
+			apage->slot[-apage->header.nSlots].offset = apage->header.free;
+			om_GetUnique(&pid, &apage->slot[-apage->header.nSlots].unique);
+			
+			obj = (Object*)&apage->data[apage->header.free];
+			obj->header.properties = objHdr->properties;
+			obj->header.tag = objHdr->tag;
+			obj->header.length = alignedLen;
+			memcpy(obj->data, data, length);
+
+			apage->free += (sizeof(ObjectHdr) + alignedLen;
+			*/
+		}
+		else
+		{
+			needToAllocPage = TRUE;
+		}		
+		BfM_FreeTrain((TrainID*)nearObj, PAGE_BUF);
+	}
+	else
+	{
+		pid.volNo = fid.volNo;
+		pid.pageNo = NIL;
+		if((neededSpace <= SP_10SIZE) && (catEntry->availSpaceList10 != NIL))
+		{
+			pid.pageNo = catEntry->availSpaceList10;	
+		}
+		else if((neededSpace <= SP_20SIZE) && (catEntry->availSpaceList20 != NIL))
+		{
+			pid.pageNo = catEntry->availSpaceList20;	
+		}
+		else if((neededSpace <= SP_30SIZE) && (catEntry->availSpaceList30 != NIL))
+		{
+			pid.pageNo = catEntry->availSpaceList30;	
+		}
+		else if((neededSpace <= SP_40SIZE) && (catEntry->availSpaceList40 != NIL))
+		{
+			pid.pageNo = catEntry->availSpaceList40;	
+		}
+		else if((neededSpace <= SP_50SIZE) && (catEntry->availSpaceList50 != NIL))
+		{
+			pid.pageNo = catEntry->availSpaceList50;	
+		}
+
+		if(pid.pageNo == NIL)
+		{
+			nearPid.volNo = fid.volNo;
+			nearPid.pageNo = catEntry->lastPage;
+			e = BfM_GetTrain((TrainID*)&nearPid, (char**)&apage, PAGE_BUF);
+			if(e < 0) ERR(e);
+			if(SP_FREE(apage) >= neededSpace)
+			{
+				pid = apage->header.pid;
+				if(SP_CFREE(apage) < neededSpace)
+				{
+					e = EduOM_CompactPage(apage, NIL);
+					if(e < 0) ERR(e);
+				}
+				e = om_RemoveFromAvailSpaceList(catObjForFile, &nearPid, apage);
+				if(e < 0) ERR(e);
+			}
+			else
+			{
+				needToAllocPage = TRUE;
+			}
+			e = BfM_FreeTrain((TrainID*)&nearPid, PAGE_BUF);
+		}
+		
+	}
+
+
+	if(needToAllocPage)
+	{
+		e = RDsM_PageIdToExtNo((PageID*)&pFid, &firstExt);
+		if(e < 0) ERR(e);
+		MAKE_PAGEID(nearPid, nearObj->volNo, nearObj->pageNo);
+		e = RDsM_AllocTrains(catEntry->fid.volNo, firstExt, &nearPid, catEntry->eff, 1, PAGESIZE2, &pid);
+		if(e < 0) ERR(e);
+		e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
+		if(e < 0) ERR(e);
+		apage->header.pid = pid;
+		SET_PAGE_TYPE(apage, SLOTTED_PAGE_TYPE);
+		apage->header.nSlots = 0;
+		apage->header.free = 0;
+		apage->header.unused = 0;
+		apage->header.fid = fid;
+		apage->header.unique = 0;
+		e = om_GetUnique(&pid, &apage->header.unique);
+		if(e < 0) ERR(e);
+		apage->header.uniqueLimit = 0;
+		e = om_GetUnique(&pid, &apage->header.uniqueLimit);
+		if(e < 0) ERR(e);
+		e = om_FileMapAddPage(catObjForFile, (PageID*)nearObj, &pid);
+		if(e < 0) ERR(e);
+	}
     
     
     return(eNOERROR);
