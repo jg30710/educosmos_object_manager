@@ -107,7 +107,7 @@ Four EduOM_CompactPage(
 				len = sizeof(obj->header) + obj->header.length;
 				memcpy(&apage->data[apageDataOffset], &tpage.data[tpage.slot[-i].offset], len);
 				apage->slot[-i].offset = apageDataOffset;
-				apageDataOffset += len;
+				apageDataOffset += ALIGNED_LENGTH(len);
 			}
 		}
 	}
@@ -116,7 +116,7 @@ Four EduOM_CompactPage(
 		obj = &tpage.data[tpage.slot[-slotNo].offset];
 		len = sizeof(obj->header) + obj->header.length;
 		memcpy(&apage->data[apageDataOffset], &tpage.data[tpage.slot[-slotNo].offset], len);
-		apageDataOffset += len;
+		apageDataOffset += ALIGNED_LENGTH(len);
 	}
 
 	apage->header.free = apageDataOffset;
