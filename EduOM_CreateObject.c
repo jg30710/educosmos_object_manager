@@ -219,7 +219,8 @@ Four eduom_CreateObject(
 			MAKE_PAGEID(nearPid, nearObj->volNo, nearObj->pageNo);
 			needToAllocPage = TRUE;
 		}		
-		BfM_FreeTrain((TrainID*)nearObj, PAGE_BUF);
+		e = BfM_FreeTrain((TrainID*)nearObj, PAGE_BUF);
+		if(e < 0) ERR(e);
 	}
 	else
 	{
@@ -285,7 +286,6 @@ Four eduom_CreateObject(
 		
 	}
 
-
 	if(needToAllocPage)
 	{
 		e = RDsM_PageIdToExtNo((PageID*)&pFid, &firstExt);
@@ -302,12 +302,12 @@ Four eduom_CreateObject(
 		apage->header.unique = 0;
 		apage->header.fid = fid;
 		e = om_GetUnique(&pid, &apage->header.unique);
-		if(e < 0) ERR(e);
+		if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 		apage->header.uniqueLimit = 0;
 		e = om_GetUnique(&pid, &apage->header.uniqueLimit);
-		if(e < 0) ERR(e);
+		if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 		e = om_FileMapAddPage(catObjForFile, &nearPid, &pid);
-		if(e < 0) ERR(e);
+		if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 		e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
 		if(e < 0) ERR(e);
 	}
@@ -323,7 +323,7 @@ Four eduom_CreateObject(
 
 	apage->slot[-i].offset = apage->header.free;
 	e = om_GetUnique(&pid, &apage->slot[-i].unique);
-	if(e < 0) ERR(e);
+	if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 	
 	obj = (Object*)&apage->data[apage->header.free];
 	obj->header.properties = objHdr->properties;
@@ -343,7 +343,7 @@ Four eduom_CreateObject(
 	if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 
 	e = BfM_SetDirty(catObjForFile, PAGE_BUF);
-	if(e < 0) ERR(e);
+	if(e < 0) ERRB1(e, catObjForFile, PAGE_BUF);
 	
 	e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
 	if(e < 0) ERR(e);

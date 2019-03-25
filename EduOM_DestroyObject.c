@@ -104,7 +104,66 @@ Four EduOM_DestroyObject(
 
     if (oid == NULL) ERR(eBADOBJECTID_OM);
 
+	e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+	if(e < 0) ERR(e);
+	GET_PTR_TO_CATENTRY_FOR_DATA(catObjForFile, catPage, catEntry);
 
+	MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
+
+	fid = catEntry->fid;
+	
+	MAKE_PAGEID(pid, oid->volNo, oid->pageNo);
+
+	e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF); 
+	if(e < 0) ERR(e);
+
+	e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
+	if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+
+	offset = apage->slot[-oid->slotNo].offset;
+	apage->slot[-oid->slotNo].offset = EMPTYSLOT;
+
+	if(oid->slotNo == (apage->header.nSlots - 1))
+		apage->header.nSlots--;
+	
+	obj = &apage->data[offset];
+	alignedLen = sizeof(ObjectHdr) + ALIGNED_LENGTH(obj->header.length);
+	if(offset + alignedLen == apage->header.free)
+		apage->header.free -= alignedLen;
+	else
+		apage->header.unused += alignedLen;
+
+	e = BfM_SetDirty(&pid, PAGE_BUF);
+	if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+
+	if((apage->header.nSlots == 0) && (catEntry->firstPage != oid->pageNo))
+	{
+		e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+		if(e < 0) ERR(e);
+		e = om_FileMapDeletePage(catObjForFile, &pid);
+		if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+
+		e = Util_getElementFromPool(dlPool, &dlElem);
+		if(e < 0) ERR(e);
+
+		dlElem->type = DL_PAGE;
+		dlElem->elem.pid = pid;
+		dlElem->next = dlHead->next;
+		dlHead->next = dlElem;
+	}
+	else
+	{
+		om_PutInAvailSpaceList(catObjForFile, &pid, apage);
+		if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+		e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+		if(e < 0) ERR(e);
+	}
+
+	e = BfM_SetDirty(catObjForFile, PAGE_BUF);
+	if(e < 0) ERRB1(e, catObjForFile, PAGE_BUF);
+
+	e = BfM_FreeTrain((TrainID*)&catObjForFile, PAGE_BUF);
+	if(e < 0) ERR(e);
     
     return(eNOERROR);
     
