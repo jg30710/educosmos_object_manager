@@ -195,6 +195,8 @@ Four eduom_CreateObject(
 	alignedLen = ALIGNED_LENGTH(length);
 	neededSpace = sizeof(ObjectHdr) + alignedLen + sizeof(SlottedPageSlot);
 
+	needToAllocPage = FALSE;
+
 	if(nearObj != NULL)
 	{
 		e = BfM_GetTrain((TrainID*)nearObj, (char**)&apage, PAGE_BUF);
@@ -206,10 +208,10 @@ Four eduom_CreateObject(
 			{
 				e = EduOM_CompactPage(apage, NIL);
 				if(e < 0) ERR(e);
-				e = BfM_SetDirty(&pid, PAGE_BUF);
-				if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 			}
 			e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
+			if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+			e = BfM_SetDirty(&pid, PAGE_BUF);
 			if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 		}
 		else
@@ -259,14 +261,26 @@ Four eduom_CreateObject(
 					e = BfM_SetDirty(&nearPid, PAGE_BUF);
 					if(e < 0) ERRB1(e, &nearPid, PAGE_BUF);
 				}
-				e = om_RemoveFromAvailSpaceList(catObjForFile, &nearPid, apage);
-				if(e < 0) ERRB1(e, &nearPid, PAGE_BUF);
+				//e = om_RemoveFromAvailSpaceList(catObjForFile, &nearPid, apage);
+				//if(e < 0) ERRB1(e, &nearPid, PAGE_BUF);
 			}
 			else
 			{
 				needToAllocPage = TRUE;
 			}
 			e = BfM_FreeTrain((TrainID*)&nearPid, PAGE_BUF);
+			if(e < 0) ERR(e);
+		}
+		else
+		{
+			e = BfM_GetTrain((TrainID*)&pid, (char**)&apage, PAGE_BUF);
+			if(e < 0) ERR(e);
+			e = om_RemoveFromAvailSpaceList(catObjForFile, &pid, apage);
+			if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+			e = BfM_SetDirty(&pid, PAGE_BUF);
+			if(e < 0) ERRB1(e, &pid, PAGE_BUF);
+			e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
+			if(e < 0) ERR(e);
 		}
 		
 	}
@@ -303,7 +317,7 @@ Four eduom_CreateObject(
 
 	for(i = 0; i < apage->header.nSlots; i++)
 	{
-		if(apage->slot[-i].offset = EMPTYSLOT)
+		if(apage->slot[-i].offset == EMPTYSLOT)
 			break;
 	}
 
@@ -328,6 +342,9 @@ Four eduom_CreateObject(
 	e = BfM_SetDirty(&pid, PAGE_BUF);
 	if(e < 0) ERRB1(e, &pid, PAGE_BUF);
 
+	e = BfM_SetDirty(catObjForFile, PAGE_BUF);
+	if(e < 0) ERR(e);
+	
 	e = BfM_FreeTrain((TrainID*)&pid, PAGE_BUF);
 	if(e < 0) ERR(e);
 
